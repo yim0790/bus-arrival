@@ -1,0 +1,10 @@
+{
+  "_설명": "버스도착 앱 설정. 이 파일만 고쳐 GitHub에 다시 올리면 됨. proxyUrl은 Cloudflare Worker 주소(https://로 시작, 끝에 / 없이). arsId는 정류소번호 5자리, routes는 노선번호 문자열 목록, refreshSec는 자동갱신 초(10~300).",
+  "proxyUrl": "https://bus-proxy.YOUR-ACCOUNT.workers.dev",
+  "refreshSec": 30,
+  "stops": [
+    { "arsId": "04185", "name": "소인수앞",       "routes": ["2014", "2016"] },
+    { "arsId": "04133", "name": "육회바른연어앞", "routes": ["2014", "2016", "2222"] },
+    { "arsId": "04186", "name": "집앞",           "routes": ["2014", "2016"] }
+  ]
+}

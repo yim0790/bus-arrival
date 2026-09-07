@@ -77,6 +77,32 @@ body{min-height:100dvh;padding-bottom:env(safe-area-inset-bottom)}
 .sw.on i{background:var(--p)}.sw.on i:after{left:18px}
 .skel{padding:14px;color:var(--mut);font-size:13px}
 .fatal{margin:16px 12px;background:#FEF0EF;border:1px solid #F0C4C0;color:#B42318;border-radius:12px;padding:14px;font-size:13px;line-height:1.6;white-space:pre-wrap}
+
+/* ── 설정 화면 ── */
+#setScr{position:fixed;inset:0;z-index:20;background:var(--bg);overflow-y:auto;display:none}
+#setScr.show{display:block}
+#setScr .top{position:sticky;top:0}
+.set{padding:12px 12px 32px;max-width:560px;margin:0 auto}
+.set .item{background:#fff;border:1px solid var(--line);border-radius:14px;padding:12px 14px;margin-bottom:10px}
+.set .item .hd{display:flex;align-items:center;gap:8px;margin-bottom:8px}
+.set .item .hd b{font-size:13px;color:var(--pd)}
+.set .item .hd .del{margin-left:auto;background:none;border:1px solid #F0C4C0;color:#B42318;border-radius:8px;padding:4px 10px;font-size:12px;font-family:inherit;cursor:pointer}
+.set .lb{font-size:11px;color:var(--mut);font-weight:700;margin:6px 0 4px}
+.set .two{display:flex;gap:8px}
+.set input{width:100%;border:1px solid #CBD9E6;border-radius:8px;padding:9px 10px;font-size:16px;font-family:inherit;background:#fff;color:var(--tx)}
+.set input:focus{outline:2px solid var(--p);outline-offset:-1px}
+.set .chips{display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-top:6px}
+.set .chip{background:#EAF4FF;color:var(--pd);font-weight:800;border-radius:16px;padding:6px 6px 6px 12px;font-size:14px;display:flex;align-items:center;gap:6px}
+.set .chip button{background:none;border:0;color:var(--pd);font-size:14px;cursor:pointer;padding:0 4px;font-family:inherit}
+.set .chip.on{background:var(--p);color:#fff}
+.set .addrt{display:flex;gap:6px;align-items:center}
+.set .addrt input{width:96px;padding:6px 8px;font-size:14px}
+.set .addrt button{border:1px dashed var(--pd);background:#fff;color:var(--pd);border-radius:16px;padding:6px 12px;font-size:13px;font-weight:700;font-family:inherit;cursor:pointer}
+.btnp{width:100%;background:var(--p);color:#fff;border:0;border-radius:12px;padding:13px;font-size:15px;font-weight:800;font-family:inherit;margin-top:6px;cursor:pointer}
+.btng{width:100%;background:#fff;color:var(--tx);border:1px solid #CBD9E6;border-radius:12px;padding:12px;font-size:14px;font-weight:700;font-family:inherit;margin-top:8px;cursor:pointer}
+.set .note{font-size:11px;color:var(--mut);margin-top:12px;line-height:1.6}
+.set .verr{background:#FEF0EF;border:1px solid #F0C4C0;color:#B42318;border-radius:10px;padding:10px 12px;font-size:12.5px;line-height:1.6;white-space:pre-wrap;margin-bottom:10px;display:none}
+.set .verr.show{display:block}
 </style>
 </head>
 <body>
@@ -86,6 +112,27 @@ body{min-height:100dvh;padding-bottom:env(safe-area-inset-bottom)}
   <div class="right">
     <div class="ring" id="ring" title="다음 자동갱신까지"><b id="ringN">–</b></div>
     <button class="rbtn" id="btnR" title="지금 새로고침" aria-label="새로고침">↻</button>
+    <button class="rbtn" id="btnS" title="설정" aria-label="설정">⚙</button>
+  </div>
+</div>
+
+<!-- 설정 화면 (정류장·노선·갱신주기 편집, 폰에 저장) -->
+<div id="setScr" aria-hidden="true">
+  <div class="top">
+    <button class="rbtn" id="btnBack" title="뒤로" aria-label="뒤로">‹</button>
+    <div><div class="ttl">설정</div><div class="sub">정류장·노선 편집</div></div>
+  </div>
+  <div class="set">
+    <div class="verr" id="setErr"></div>
+    <div id="setList"></div>
+    <button class="btng" id="btnAddStop">+ 정류장 추가</button>
+    <div class="item" style="margin-top:10px">
+      <div class="lb">자동갱신 주기</div>
+      <div class="chips" id="setRefresh"></div>
+    </div>
+    <button class="btnp" id="btnSave">저장</button>
+    <button class="btng" id="btnReset">기본값 복원 (config.json)</button>
+    <div class="note">설정은 이 폰(브라우저)에만 저장돼. 앱을 삭제하거나 "기본값 복원"을 누르면 GitHub의 config.json 값으로 돌아가.</div>
   </div>
 </div>
 
@@ -106,10 +153,28 @@ const $=id=>document.getElementById(id);
 const ROUTE_COLOR={'1':'var(--c1)','2':'var(--c2)','3':'var(--c3)','4':'var(--c4)','5':'var(--c5)','6':'var(--c6)','13':'var(--c13)','14':'var(--c14)','15':'var(--c15)'};
 const CONG={'3':['여유','c3'],'4':['보통','c4'],'5':['혼잡','c5'],'6':['매우혼잡','c6']};
 const RETRY_SEC=15;
+const LS_KEY='bus-arrival-cfg';   // 설정 화면 저장값 (폰 로컬)
 
-let cfg=null, auto=true, timer=null, tick=null, nextAt=0, period=30, lastOk=0, lastData={}, busy=false;
+let cfg=null, base=null, auto=true, timer=null, tick=null, nextAt=0, period=30, lastOk=0, lastData={}, busy=false;
 
-/* ── 설정 로드·검증 ── */
+/* ── 설정 검증: 오류 목록 반환(없으면 []) + 값 정규화 ── */
+function validate(c, label){
+  const errs=[];
+  const rs=Number(c.refreshSec);
+  if(!(rs>=10&&rs<=300)) errs.push('refreshSec는 10~300 사이 숫자 (현재: '+c.refreshSec+')');
+  if(!Array.isArray(c.stops)||!c.stops.length) errs.push('정류장이 하나도 없음');
+  else c.stops.forEach((s,i)=>{
+    s.arsId=String(s.arsId==null?'':s.arsId).trim();
+    if(!/^\d{5}$/.test(s.arsId)) errs.push('정류장 '+(i+1)+': 정류소번호는 5자리 숫자 (현재: "'+s.arsId+'")');
+    s.routes=Array.isArray(s.routes)?s.routes.map(x=>String(x).trim()).filter(Boolean):[];
+    if(!s.routes.length) errs.push('정류장 '+(i+1)+' ('+(s.arsId||'?')+'): 노선이 비어 있음');
+    s.name=String(s.name||'').trim()||s.arsId;
+  });
+  if(!errs.length) c.refreshSec=rs;
+  return errs;
+}
+
+/* ── config.json 로드 → 폰 저장값(있으면) 덮어쓰기 ── */
 async function loadConfig(){
   let c;
   try{ const r=await fetch('config.json?ts='+Date.now(),{cache:'no-store'}); if(!r.ok) throw new Error('HTTP '+r.status); c=await r.json(); }
@@ -117,18 +182,15 @@ async function loadConfig(){
   const errs=[];
   if(typeof c.proxyUrl!=='string'||!/^https:\/\//.test(c.proxyUrl)) errs.push('proxyUrl은 https://로 시작해야 함 (현재: '+c.proxyUrl+')');
   if(/YOUR-ACCOUNT/.test(c.proxyUrl||'')) errs.push('proxyUrl이 아직 예시값이야. Cloudflare Worker 주소로 바꿔줘');
-  const rs=Number(c.refreshSec);
-  if(!(rs>=10&&rs<=300)) errs.push('refreshSec는 10~300 사이 숫자 (현재: '+c.refreshSec+')');
-  if(!Array.isArray(c.stops)||!c.stops.length) errs.push('stops가 비어 있음');
-  else c.stops.forEach((s,i)=>{
-    if(!/^\d{5}$/.test(String(s.arsId||''))) errs.push('stops['+(i+1)+'] arsId는 5자리 숫자 (현재: '+s.arsId+')');
-    if(!Array.isArray(s.routes)||!s.routes.length) errs.push('stops['+(i+1)+'] routes가 비어 있음');
-    if(!s.name) s.name=String(s.arsId);
-  });
+  errs.push(...validate(c));
   if(errs.length) throw new Error('config.json 오류:\n- '+errs.join('\n- '));
   c.proxyUrl=c.proxyUrl.replace(/\/+$/,'');
-  c.refreshSec=rs;
-  c.stops.forEach(s=>{ s.arsId=String(s.arsId); s.routes=s.routes.map(x=>String(x).trim()); });
+  base=JSON.parse(JSON.stringify({refreshSec:c.refreshSec,stops:c.stops}));   // 기본값 보관(복원용)
+  // 폰에 저장된 설정이 있고 유효하면 그걸 사용. 깨져 있으면 무시하고 기본값
+  try{
+    const raw=localStorage.getItem(LS_KEY);
+    if(raw){ const st=JSON.parse(raw); if(st&&!validate(st).length){ c.refreshSec=st.refreshSec; c.stops=st.stops; } }
+  }catch(_){}
   return c;
 }
 
@@ -255,11 +317,87 @@ tick=setInterval(()=>{
   }
 },1000);
 
+/* ── 설정 화면 ── */
+const REFRESH_OPTS=[15,30,60];
+let edit=null;   // 편집 중인 사본 {refreshSec, stops}
+
+function openSet(){
+  if(!cfg) return;
+  edit=JSON.parse(JSON.stringify({refreshSec:cfg.refreshSec,stops:cfg.stops}));
+  $('setErr').classList.remove('show');
+  renderSet();
+  $('setScr').classList.add('show'); $('setScr').setAttribute('aria-hidden','false');
+  // 안드로이드 뒤로가기: history에 한 칸 쌓고 popstate가 닫는다
+  if(typeof history!=='undefined'&&(!history.state||!history.state.d)) history.pushState({d:1},'');
+}
+function closeSet(){
+  $('setScr').classList.remove('show'); $('setScr').setAttribute('aria-hidden','true');
+  edit=null;
+}
+function renderSet(){
+  const box=$('setList'); box.innerHTML='';
+  edit.stops.forEach((s,i)=>{
+    const it=document.createElement('div'); it.className='item'; it.dataset.i=i;
+    it.innerHTML=
+      '<div class="hd"><b>정류장 '+(i+1)+'</b><button class="del" data-act="delStop">삭제</button></div>'+
+      '<div class="two"><div style="width:40%"><div class="lb">정류소번호(5자리)</div><input data-k="arsId" inputmode="numeric" maxlength="5" value="'+esc(s.arsId)+'"></div>'+
+      '<div style="flex:1"><div class="lb">내 이름</div><input data-k="name" value="'+esc(s.name)+'"></div></div>'+
+      '<div class="lb">조회 노선</div><div class="chips">'+
+      s.routes.map((r,j)=>'<span class="chip">'+esc(r)+'<button data-act="delRoute" data-j="'+j+'" aria-label="노선 삭제">✕</button></span>').join('')+
+      '<span class="addrt"><input data-k="newRoute" inputmode="numeric" placeholder="노선번호"><button data-act="addRoute">+ 추가</button></span></div>';
+    box.appendChild(it);
+  });
+  $('setRefresh').innerHTML=REFRESH_OPTS.map(v=>'<span class="chip'+(v===edit.refreshSec?' on':'')+'" data-act="setRefresh" data-v="'+v+'" style="cursor:pointer">'+v+'초</span>').join('');
+}
+function syncInputs(){ // 입력칸 값 → edit
+  document.querySelectorAll('#setList .item').forEach(it=>{
+    const s=edit.stops[+it.dataset.i]; if(!s) return;
+    s.arsId=it.querySelector('[data-k=arsId]').value.trim();
+    s.name=it.querySelector('[data-k=name]').value.trim();
+  });
+}
+$('setScr').addEventListener('click',e=>{
+  const b=e.target.closest('[data-act]'); if(!b) return;
+  const act=b.dataset.act; const it=b.closest('.item'); const i=it?+it.dataset.i:-1;
+  syncInputs();
+  if(act==='delStop'){ edit.stops.splice(i,1); renderSet(); }
+  else if(act==='delRoute'){ edit.stops[i].routes.splice(+b.dataset.j,1); renderSet(); }
+  else if(act==='addRoute'){
+    const inp=it.querySelector('[data-k=newRoute]'); const v=inp.value.trim();
+    if(!v) { inp.focus(); return; }
+    if(!edit.stops[i].routes.includes(v)) edit.stops[i].routes.push(v);
+    renderSet();
+  }
+  else if(act==='setRefresh'){ edit.refreshSec=+b.dataset.v; renderSet(); }
+});
+$('setScr').addEventListener('keydown',e=>{ // 노선 입력칸에서 Enter = 추가
+  if(e.key==='Enter'&&e.target.dataset.k==='newRoute'){ e.preventDefault(); e.target.nextElementSibling.click(); }
+});
+$('btnAddStop').addEventListener('click',()=>{ syncInputs(); edit.stops.push({arsId:'',name:'',routes:[]}); renderSet(); const last=$('setList').lastElementChild; if(last) last.querySelector('[data-k=arsId]').focus(); });
+$('btnSave').addEventListener('click',()=>{
+  syncInputs();
+  const c=JSON.parse(JSON.stringify(edit));
+  const errs=validate(c);
+  if(errs.length){ $('setErr').textContent='저장 안 됨 — 고쳐줘:\n- '+errs.join('\n- '); $('setErr').classList.add('show'); $('setScr').scrollTo({top:0,behavior:'smooth'}); return; }
+  try{ localStorage.setItem(LS_KEY,JSON.stringify(c)); }catch(_){ alert('이 브라우저는 저장이 막혀 있어. 설정은 이번 실행에만 적용돼.'); }
+  cfg.refreshSec=c.refreshSec; cfg.stops=c.stops;
+  goBack(); render(); refresh(true);
+});
+$('btnReset').addEventListener('click',()=>{
+  if(!confirm('config.json 기본값으로 되돌릴까? 폰에 저장한 설정은 지워져.')) return;
+  try{ localStorage.removeItem(LS_KEY); }catch(_){}
+  edit=JSON.parse(JSON.stringify(base)); $('setErr').classList.remove('show'); renderSet();
+});
+function goBack(){ if(history.state&&history.state.d) history.back(); else closeSet(); }
+$('btnS').addEventListener('click',openSet);
+$('btnBack').addEventListener('click',goBack);
+window.addEventListener('popstate',()=>closeSet());
+
 /* ── 시작 ── */
 loadConfig().then(c=>{ cfg=c; render(); refresh(true); })
   .catch(e=>{ $('stops').innerHTML='<div class="fatal">'+esc(e.message)+'</div>'; $('sub').textContent='설정 오류'; $('ringN').textContent='!'; });
 
-window.__bus={parseMsg,fmtSec,loadConfig:()=>cfg,data:()=>lastData}; // 테스트용
+window.__bus={parseMsg,fmtSec,validate,cfg:()=>cfg,data:()=>lastData,openSet,closeSet}; // 테스트용
 })();
 </script>
 <!-- ▼ 서비스워커 등록: </body> 직전에 삽입 -->
